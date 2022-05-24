@@ -1,12 +1,9 @@
-import bluetooth.BTH_LE_GATT_EVENT_TYPE
-import bluetooth.PBLUETOOTH_GATT_VALUE_CHANGED_EVENT
-import kotlinx.cinterop.get
-import kotlinx.cinterop.pointed
-import kotlinx.cinterop.reinterpret
+import bluetooth.*
+import kotlinx.cinterop.*
+import platform.posix.GUID
+import platform.posix.NULL
 import platform.posix.printf
-import platform.windows.E_FAIL
-import platform.windows.HRESULT
-import platform.windows.PVOID
+import platform.windows.*
 
 fun main() {
     printf("Hello, world!")
@@ -54,24 +51,16 @@ private fun somethingHappened(
     }
 }
 
-//// this function works to get a handle for a BLE device based on its GUID
-//// copied from
-// http://social.msdn.microsoft.com/Forums/windowshardware/en-US/e5e1058d-5a64-4e60-b8e2-0ce327c13058/erroraccessdenied-error-when-trying-to-receive-data-from-bluetooth-low-energy-devices?forum=wdk
-// HANDLE GetBLEHandle(__in GUID AGuid)
-// {
-//	HDEVINFO hDI;
-//	SP_DEVICE_INTERFACE_DATA did;
-//	SP_DEVINFO_DATA dd;
-//	GUID BluetoothInterfaceGUID = AGuid;
-//	HANDLE hComm = NULL;
-//
-//	hDI = SetupDiGetClassDevs(&BluetoothInterfaceGUID, NULL, NULL, DIGCF_DEVICEINTERFACE |
-// DIGCF_PRESENT);
-//
-//	if( hDI == INVALID_HANDLE_VALUE ) return NULL;
-//
-//	did.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-//	dd.cbSize = sizeof(SP_DEVINFO_DATA);
+fun getBLEHandle(aGUID: GUID): HANDLE? = memScoped {
+    val hDI: HDEVINFO?
+    val did: SP_DEVICE_INTERFACE_DATA = alloc()
+    val dd: SP_DEVINFO_DATA = alloc()
+    val bluetoothInterfaceGUID: GUID = aGUID
+    val hComm: HANDLE? = NULL
+    hDI = SetupDiGetClassDevs?.let { it(bluetoothInterfaceGUID.ptr, NULL?.reinterpret(), NULL?.reinterpret(), (DIGCF_DEVICEINTERFACE or DIGCF_PRESENT).toUInt()) }
+	if(hDI == INVALID_HANDLE_VALUE) return NULL
+	did.cbSize = sizeOf<SP_DEVICE_INTERFACE_DATA>().toUInt()
+	dd.cbSize = sizeOf<SP_DEVINFO_DATA>().toUInt()
 //
 //	for(DWORD i = 0; SetupDiEnumDeviceInterfaces(hDI, NULL, &BluetoothInterfaceGUID, i, &did); i++)
 //	{
@@ -109,10 +98,9 @@ private fun somethingHappened(
 //	}
 //
 //	SetupDiDestroyDeviceInfoList(hDI);
-//	return hComm;
-// }
-//
-//
+	return hComm
+}
+
 // int main( int argc, char *argv[ ], char *envp[ ] )
 // {
 //	//Step 1: find the BLE device handle from its GUID
