@@ -21,7 +21,7 @@ private fun somethingHappened(
         printf("datasize 0\n")
     } else {
         printf("HR ")
-        val heartRate =
+        val heartRate: Int =
             if (0x01 ==
                     (valueChangedEventParameters.pointed.CharacteristicValue
                         ?.pointed
@@ -40,7 +40,7 @@ private fun somethingHappened(
                         ?.toInt()
                         ?: 0)
             } else {
-                (valueChangedEventParameters.pointed.CharacteristicValue?.pointed?.Data?.get(1)
+                (valueChangedEventParameters.pointed.CharacteristicValue?.pointed?.Data?.get(1)?.toInt()
                     ?: 0)
             }
         printf("%d\n", heartRate)
@@ -113,6 +113,7 @@ fun getBLEHandle(aGUID: GUID): HANDLE? = memScoped {
     SetupDiDestroyDeviceInfoList(hDI)
     return hComm
 }
+
 fun main() {
     printf("Hello, world!")
 }
