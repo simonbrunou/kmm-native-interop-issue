@@ -1,3 +1,3 @@
 headers = wtypesbase.h minwinbase.h minwindef.h winnt.h bluetoothleapis.h bthdef.h bthledef.h devguid.h regstr.h setupapi.h windows.h
-compilerOpts = -I/include
+compilerOpts = -I/include -DNTDDI_VERSION=NTDDI_WIN8
 linkerOpts = -I/include

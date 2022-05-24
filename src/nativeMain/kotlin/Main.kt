@@ -1,4 +1,12 @@
+import bluetooth.BTH_LE_GATT_EVENT_TYPE
+import bluetooth.PBLUETOOTH_GATT_VALUE_CHANGED_EVENT
+import kotlinx.cinterop.get
+import kotlinx.cinterop.pointed
+import kotlinx.cinterop.reinterpret
 import platform.posix.printf
+import platform.windows.E_FAIL
+import platform.windows.HRESULT
+import platform.windows.PVOID
 
 fun main() {
     printf("Hello, world!")
@@ -6,42 +14,46 @@ fun main() {
 
 private const val TO_SEARCH_DEVICE_UUID = "{0000180D-0000-1000-8000-00805F9B34FB}"
 
-private fun somethingHappened(eventType: BTH_LE_GATT_EVENT_TYPE) {}
+private fun somethingHappened(
+    eventType: BTH_LE_GATT_EVENT_TYPE,
+    eventOutParameter: PVOID,
+    context: PVOID
+) {
+    printf("notification obtained ")
+    val valueChangedEventParameters: PBLUETOOTH_GATT_VALUE_CHANGED_EVENT =
+        eventOutParameter.reinterpret()
+    val hr: HRESULT
+    if (0u == valueChangedEventParameters.pointed.CharacteristicValue?.pointed?.DataSize) {
+        hr = E_FAIL
+        printf("datasize 0\n")
+    } else {
+        printf("HR ")
+        val heartRate =
+            if (0x01 ==
+                    (valueChangedEventParameters.pointed.CharacteristicValue
+                        ?.pointed
+                        ?.Data?.get(0)
+                        ?.toInt()
+                        ?: 0) and 0x01
+            ) {
+                (valueChangedEventParameters.pointed.CharacteristicValue
+                    ?.pointed
+                    ?.Data?.get(1)
+                    ?.toInt()
+                    ?: 0) * 256 +
+                    (valueChangedEventParameters.pointed.CharacteristicValue
+                        ?.pointed
+                        ?.Data?.get(2)
+                        ?.toInt()
+                        ?: 0)
+            } else {
+                (valueChangedEventParameters.pointed.CharacteristicValue?.pointed?.Data?.get(1)
+                    ?: 0)
+            }
+        printf("%d\n", heartRate)
+    }
+}
 
-// void SomethingHappened( BTH_LE_GATT_EVENT_TYPE EventType, PVOID EventOutParameter, PVOID Context)
-// {
-//	printf("notification obtained ");
-//	PBLUETOOTH_GATT_VALUE_CHANGED_EVENT ValueChangedEventParameters =
-// (PBLUETOOTH_GATT_VALUE_CHANGED_EVENT)EventOutParameter;
-//
-//	HRESULT hr;
-//	if (0 == ValueChangedEventParameters->CharacteristicValue->DataSize) {
-//		hr = E_FAIL;
-//		printf("datasize 0\n");
-//	} else {
-//		printf("HR ");
-//		//for(int i=0; i<ValueChangedEventParameters->CharacteristicValue->DataSize;i++) {
-//		//	printf("%0x",ValueChangedEventParameters->CharacteristicValue->Data[i]);
-//		//}
-//		// if the first bit is set, then the value is the next 2 bytes.  If it is clear, the value is in
-// the next byte
-//		//The Heart Rate Value Format bit (bit 0 of the Flags field) indicates if the data format of
-//		//the Heart Rate Measurement Value field is in a format of UINT8 or UINT16.
-//		//When the Heart Rate Value format is sent in a UINT8 format, the Heart Rate Value
-//		//Format bit shall be set to 0. When the Heart Rate Value format is sent in a UINT16
-//		//format, the Heart Rate Value Format bit shall be set to 1
-//		//from this PDF https://www.bluetooth.org/docman/handlers/downloaddoc.ashx?doc_id=239866
-//		unsigned heart_rate;
-//		if (0x01 == (ValueChangedEventParameters->CharacteristicValue->Data[0] & 0x01)) {
-//			heart_rate = ValueChangedEventParameters->CharacteristicValue->Data[1]*256 +
-// ValueChangedEventParameters->CharacteristicValue->Data[2];
-//		} else {
-//			heart_rate = ValueChangedEventParameters->CharacteristicValue->Data[1];
-//		}
-//		printf("%d\n", heart_rate);
-//	}
-// }
-//
 //// this function works to get a handle for a BLE device based on its GUID
 //// copied from
 // http://social.msdn.microsoft.com/Forums/windowshardware/en-US/e5e1058d-5a64-4e60-b8e2-0ce327c13058/erroraccessdenied-error-when-trying-to-receive-data-from-bluetooth-low-energy-devices?forum=wdk
