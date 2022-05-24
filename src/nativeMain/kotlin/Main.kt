@@ -5,10 +5,6 @@ import platform.posix.NULL
 import platform.posix.printf
 import platform.windows.*
 
-fun main() {
-    printf("Hello, world!")
-}
-
 private const val TO_SEARCH_DEVICE_UUID = "{0000180D-0000-1000-8000-00805F9B34FB}"
 
 private fun somethingHappened(
@@ -56,51 +52,70 @@ fun getBLEHandle(aGUID: GUID): HANDLE? = memScoped {
     val did: SP_DEVICE_INTERFACE_DATA = alloc()
     val dd: SP_DEVINFO_DATA = alloc()
     val bluetoothInterfaceGUID: GUID = aGUID
-    val hComm: HANDLE? = NULL
-    hDI = SetupDiGetClassDevs?.let { it(bluetoothInterfaceGUID.ptr, NULL?.reinterpret(), NULL?.reinterpret(), (DIGCF_DEVICEINTERFACE or DIGCF_PRESENT).toUInt()) }
-	if(hDI == INVALID_HANDLE_VALUE) return NULL
-	did.cbSize = sizeOf<SP_DEVICE_INTERFACE_DATA>().toUInt()
-	dd.cbSize = sizeOf<SP_DEVINFO_DATA>().toUInt()
-//
-//	for(DWORD i = 0; SetupDiEnumDeviceInterfaces(hDI, NULL, &BluetoothInterfaceGUID, i, &did); i++)
-//	{
-//		SP_DEVICE_INTERFACE_DETAIL_DATA DeviceInterfaceDetailData;
-//
-//		DeviceInterfaceDetailData.cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-//
-//		DWORD size = 0;
-//
-//		if(!SetupDiGetDeviceInterfaceDetail(hDI, &did, NULL, 0, &size, 0) )
-//		{
-//			int err = GetLastError();
-//
-//			if( err == ERROR_NO_MORE_ITEMS ) break;
-//
-//			PSP_DEVICE_INTERFACE_DETAIL_DATA pInterfaceDetailData =
-// (PSP_DEVICE_INTERFACE_DETAIL_DATA)GlobalAlloc(GPTR , size);
-//
-//			pInterfaceDetailData->cbSize = sizeof (SP_DEVICE_INTERFACE_DETAIL_DATA);
-//
-//			if( !SetupDiGetDeviceInterfaceDetail(hDI, &did, pInterfaceDetailData, size, &size, &dd) )
-//				break;
-//
-//			hComm = CreateFile(
-//				pInterfaceDetailData->DevicePath,
-//				GENERIC_WRITE | GENERIC_READ,
-//				FILE_SHARE_READ | FILE_SHARE_WRITE,
-//				NULL,
-//				OPEN_EXISTING,
-//				0,
-//				NULL);
-//
-//			GlobalFree(pInterfaceDetailData);
-//		}
-//	}
-//
-//	SetupDiDestroyDeviceInfoList(hDI);
-	return hComm
+    var hComm: HANDLE? = NULL
+    hDI =
+        SetupDiGetClassDevs?.let {
+            it(
+                bluetoothInterfaceGUID.ptr,
+                NULL?.reinterpret(),
+                NULL?.reinterpret(),
+                (DIGCF_DEVICEINTERFACE or DIGCF_PRESENT).toUInt()
+            )
+        }
+    if (hDI == INVALID_HANDLE_VALUE) return NULL
+    did.cbSize = sizeOf<SP_DEVICE_INTERFACE_DATA>().toUInt()
+    dd.cbSize = sizeOf<SP_DEVINFO_DATA>().toUInt()
+    var i: DWORD = 0u
+    while (SetupDiEnumDeviceInterfaces(
+        hDI,
+        NULL?.reinterpret(),
+        bluetoothInterfaceGUID.ptr,
+        i,
+        did.ptr
+    ) > 0) {
+        val deviceInterfaceDetailData: SP_DEVICE_INTERFACE_DETAIL_DATA = alloc()
+        deviceInterfaceDetailData.cbSize = sizeOf<SP_DEVICE_INTERFACE_DETAIL_DATA>().toUInt()
+        val size: DWORDVar = alloc()
+        if ((SetupDiGetDeviceInterfaceDetail?.let {
+                it(hDI, did.ptr, NULL?.reinterpret(), 0u, size.ptr, alloc())
+            }
+                ?: 0) <= 0
+        ) {
+            val err = GetLastError()
+            if (err.toInt() == ERROR_NO_MORE_ITEMS) break
+            val pInterfaceDetailData: PSP_DEVICE_INTERFACE_DETAIL_DATA? =
+                GlobalAlloc(GPTR, size.value.toULong())?.reinterpret()
+            pInterfaceDetailData?.pointed?.cbSize =
+                sizeOf<SP_DEVICE_INTERFACE_DETAIL_DATA>().toUInt()
+            if ((SetupDiGetDeviceInterfaceDetail?.let {
+                    it(hDI, did.ptr, pInterfaceDetailData, size.value, size.ptr, dd.ptr)
+                }
+                    ?: 0) <= 0
+            ) {
+                break
+            }
+            hComm =
+                CreateFile?.let {
+                    it(
+                        pInterfaceDetailData?.pointed?.DevicePath?.reinterpret(),
+                        (GENERIC_WRITE or GENERIC_READ.toInt()).toUInt(),
+                        (FILE_SHARE_READ or FILE_SHARE_WRITE).toUInt(),
+                        NULL?.reinterpret(),
+                        OPEN_EXISTING.toUInt(),
+                        0u,
+                        NULL?.reinterpret()
+                    )
+                }
+            GlobalFree(pInterfaceDetailData)
+        }
+        i++
+    }
+    SetupDiDestroyDeviceInfoList(hDI)
+    return hComm
 }
-
+fun main() {
+    printf("Hello, world!")
+}
 // int main( int argc, char *argv[ ], char *envp[ ] )
 // {
 //	//Step 1: find the BLE device handle from its GUID
